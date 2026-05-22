@@ -4,9 +4,10 @@ const app = express();
 const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
-// Middleware
-app.use(cors());
+app.use(cors({}));
+app.use(express.json());
 app.use(express.json());
 
 // MongoDB Connection
@@ -20,6 +21,27 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
+const JWKS = createRemoteJWKSet(new URL(process.env.JWKS_URI));
+
+const verifyToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthorized" });
+  }
+  const token = authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized" });
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    console.log("Decoded JWT Payload:", payload);
+    next();
+  } catch (error) {
+    return res.status(401).send({ message: "Unauthorized", error });
+  }
+};
 
 async function run() {
   try {
@@ -37,7 +59,7 @@ async function run() {
     });
 
     // My Bookings
-    app.get("/my-bookings", async (req, res) => {
+    app.get("/my-bookings", verifyToken, async (req, res) => {
       try {
         const email = req.query.email;
         const query = { userEmail: email };
@@ -49,7 +71,7 @@ async function run() {
     });
 
     // Update Room
-    app.patch("/update-room/:id", async (req, res) => {
+    app.patch("/update-room/:id", verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const updatedData = req.body;
@@ -74,7 +96,7 @@ async function run() {
     });
 
     // Delete Room
-    app.delete("/rooms/:id", async (req, res) => {
+    app.delete("/rooms/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await roomsCollection.deleteOne(query);
@@ -82,20 +104,32 @@ async function run() {
     });
 
     // Get All Rooms
-    app.get("/rooms", async (req, res) => {
+    app.get("/rooms", verifyToken, async (req, res) => {
       const result = await roomsCollection.find().toArray();
       res.send(result);
     });
 
-    // Get Single Room
-    app.get("/rooms/:id", async (req, res) => {
+    // Get Single Room id
+    app.get("/rooms/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
-      const result = await roomsCollection.findOne({ _id: new ObjectId(id) });
+
+      // Check ObjectId validity
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid room ID",
+        });
+      }
+
+      const result = await roomsCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
       res.send(result);
     });
 
     // Add Room
-    app.post("/add-room", async (req, res) => {
+    app.post("/add-room", verifyToken, async (req, res) => {
       try {
         const newRoom = req.body;
         const result = await roomsCollection.insertOne(newRoom);
@@ -106,13 +140,13 @@ async function run() {
     });
 
     // All Bookings
-    app.get("/bookings", async (req, res) => {
+    app.get("/bookings", verifyToken, async (req, res) => {
       const result = await bookingsCollection.find().toArray();
       res.send(result);
     });
 
     // Book a Room (Conflict Check + Booking Count)
-    app.post("/bookings", async (req, res) => {
+    app.post("/bookings", verifyToken, async (req, res) => {
       try {
         const { roomId, date, startTime, endTime, userEmail } = req.body;
 
@@ -135,8 +169,7 @@ async function run() {
           status: "confirmed",
           createdAt: new Date(),
         });
-
-        // রুমের বুকিং কাউন্ট বাড়ানো
+        // Increment booking count for the room
         await roomsCollection.updateOne(
           { _id: new ObjectId(roomId) },
           { $inc: { bookingCount: 1 } },
