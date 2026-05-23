@@ -1,6 +1,6 @@
 # StudyNook Backend – Library Study Room Booking API
 
-Live API: https://your-backend-url.com
+Live API: https://studynook-server-bay.vercel.app/
 
 ---
 
