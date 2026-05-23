@@ -66,7 +66,7 @@ async function run() {
       res.send(result);
     });
 
-    // My Bookings
+    // My Bookings roust
     app.get("/my-bookings",  async (req, res) => {
       try {
         const email = req.query.email;
