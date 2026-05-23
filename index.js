@@ -2,12 +2,18 @@ const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const dotenv = require("dotenv");
+const cookieParser = require("cookie-parser");
 dotenv.config();
 const cors = require("cors");
 const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
-app.use(cors({}));
-app.use(express.json());
+app.use(
+  cors({
+    origin: process.env.JWKS_URL,
+    credentials: true,
+  }),
+);
+app.use(cookieParser());
 app.use(express.json());
 
 // MongoDB Connection
@@ -22,7 +28,9 @@ const client = new MongoClient(uri, {
   },
 });
 
-const JWKS = createRemoteJWKSet(new URL(process.env.JWKS_URI));
+const JWKS = createRemoteJWKSet(
+  new URL(`${process.env.JWKS_URL}/api/auth/jwks`),
+ );
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -59,7 +67,7 @@ async function run() {
     });
 
     // My Bookings
-    app.get("/my-bookings", verifyToken, async (req, res) => {
+    app.get("/my-bookings",  async (req, res) => {
       try {
         const email = req.query.email;
         const query = { userEmail: email };
@@ -71,7 +79,7 @@ async function run() {
     });
 
     // Update Room
-    app.patch("/update-room/:id", verifyToken, async (req, res) => {
+    app.patch("/update-room/:id",  async (req, res) => {
       try {
         const id = req.params.id;
         const updatedData = req.body;
@@ -96,7 +104,7 @@ async function run() {
     });
 
     // Delete Room
-    app.delete("/rooms/:id", verifyToken, async (req, res) => {
+    app.delete("/rooms/:id",  async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await roomsCollection.deleteOne(query);
@@ -104,13 +112,13 @@ async function run() {
     });
 
     // Get All Rooms
-    app.get("/rooms", verifyToken, async (req, res) => {
+    app.get("/rooms", async (req, res) => {
       const result = await roomsCollection.find().toArray();
       res.send(result);
     });
 
     // Get Single Room id
-    app.get("/rooms/:id", verifyToken, async (req, res) => {
+    app.get("/rooms/:id", verifyToken , async (req, res) => {
       const { id } = req.params;
 
       // Check ObjectId validity
@@ -129,7 +137,7 @@ async function run() {
     });
 
     // Add Room
-    app.post("/add-room", verifyToken, async (req, res) => {
+    app.post("/add-room",  async (req, res) => {
       try {
         const newRoom = req.body;
         const result = await roomsCollection.insertOne(newRoom);
@@ -140,13 +148,13 @@ async function run() {
     });
 
     // All Bookings
-    app.get("/bookings", verifyToken, async (req, res) => {
+    app.get("/bookings",   async (req, res) => {
       const result = await bookingsCollection.find().toArray();
       res.send(result);
     });
 
     // Book a Room (Conflict Check + Booking Count)
-    app.post("/bookings", verifyToken, async (req, res) => {
+    app.post("/bookings",  async (req, res) => {
       try {
         const { roomId, date, startTime, endTime, userEmail } = req.body;
 
