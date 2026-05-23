@@ -44,7 +44,7 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const { payload } = await jwtVerify(token, JWKS);
-    console.log("Decoded JWT Payload:", payload);
+    // console.log("Decoded JWT Payload:", payload);
     next();
   } catch (error) {
     return res.status(401).send({ message: "Unauthorized", error });
@@ -148,7 +148,7 @@ async function run() {
     });
 
     // All Bookings
-    app.get("/bookings",   async (req, res) => {
+    app.get("/bookings",  async (req, res) => {
       const result = await bookingsCollection.find().toArray();
       res.send(result);
     });
