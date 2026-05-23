@@ -53,7 +53,7 @@ const verifyToken = async (req, res, next) => {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const db = client.db("studynook");
     const roomsCollection = db.collection("rooms");
     const bookingsCollection = db.collection("bookings");
